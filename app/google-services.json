@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "436733553780",
+    "project_id": "myschedule-c917e",
+    "storage_bucket": "myschedule-c917e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:436733553780:android:31135b3089083b1ebab521",
+        "android_client_info": {
+          "package_name": "com.myschedule.id"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDGQEeFNWATIYXpRn2QxroiQKgJyr9LpQ8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
