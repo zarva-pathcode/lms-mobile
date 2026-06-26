@@ -8,6 +8,4 @@
 .externalNativeBuild
 .cxx
 local.properties
-*.json
-firebase*.json
 myschedule-c917e-firebase-adminsdk-fbsvc-6ed7e5f9a0.json
