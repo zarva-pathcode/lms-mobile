@@ -31,6 +31,8 @@ object AuthRepository {
                         UserSession.role = doc.getString("role") ?: "student"
                         UserSession.universitas = doc.getString("universitas") ?: ""
                         UserSession.profileImageUri = doc.getString("profileImageUri")
+                        UserSession.studentId = doc.getString("nim") ?: ""
+                        UserSession.nidn = doc.getString("nidn") ?: ""
                         
                         val role = UserSession.role
                         val kelas = doc.getString("kelas") ?: ""

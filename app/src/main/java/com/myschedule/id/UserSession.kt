@@ -13,6 +13,7 @@ object UserSession {
     // ==========================
     var username by mutableStateOf("")
     var studentId by mutableStateOf("")
+    var nidn by mutableStateOf("")
     var universitas by mutableStateOf("")
     var email by mutableStateOf("")
     var password by mutableStateOf("")
@@ -55,6 +56,7 @@ object UserSession {
         // Reset data runtime
         username = ""
         studentId = ""
+        nidn = ""
         universitas = ""
         email = ""
         password = ""

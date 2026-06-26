@@ -1,5 +1,6 @@
 package com.myschedule.id.ui
 
+import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.compose.foundation.background
@@ -12,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -89,6 +91,7 @@ fun TeacherTaskSubmissionsScreen(navController: NavHostController, taskId: Strin
 
 @Composable
 fun SubmissionCardInternal(taskId: String, sub: Map<String, Any>, navController: NavHostController, primaryColor: Color, onUpdate: () -> Unit) {
+    val context = LocalContext.current
     var gradeValue by remember { mutableStateOf(sub["grade"]?.toString() ?: "") }
     var isEditingGrade by remember { mutableStateOf(false) }
     val studentUid = sub["studentUid"] as? String ?: ""
@@ -122,30 +125,47 @@ fun SubmissionCardInternal(taskId: String, sub: Map<String, Any>, navController:
             
             val fileUrl = sub["fileUrl"]?.toString() ?: ""
             val fileName = sub["fileName"]?.toString() ?: "File Tugas"
+            val submissionLink = sub["submissionLink"]?.toString() ?: ""
             
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { 
-                        if (fileUrl.isNotEmpty()) {
-                            // PERBAIKAN: Menggunakan Uri.encode untuk keamanan navigasi query param
+            if (fileUrl.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { 
                             val encodedUrl = Uri.encode(fileUrl)
                             val encodedName = Uri.encode("$studentName - $fileName")
                             navController.navigate("file_viewer?fileUrl=$encodedUrl&fileName=$encodedName")
                         }
-                    }
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.FileOpen, null, tint = primaryColor, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    fileName, 
-                    color = primaryColor, 
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    fontWeight = FontWeight.Medium
-                )
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.FileOpen, null, tint = primaryColor, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        fileName, 
+                        color = primaryColor, 
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            
+            if (submissionLink.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(submissionLink))
+                            context.startActivity(intent)
+                        }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Filled.Link, null, tint = primaryColor, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Lihat Link", color = primaryColor, fontSize = 13.sp, maxLines = 1, fontWeight = FontWeight.Medium)
+                }
             }
             
             Text("Dikumpulkan: $dateStr", fontSize = 11.sp, color = Color.Gray, modifier = Modifier.padding(top = 4.dp))

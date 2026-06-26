@@ -1,9 +1,11 @@
 package com.myschedule.id.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -142,26 +144,69 @@ fun StudentAbsensiScreen(navController: NavHostController, uniName: String, clas
                                         Text("Tanggal: ${session["date"]}", fontSize = 12.sp, color = Color.Gray)
                                     }
                                     
+                                    val myAttendance = students.find { it["uid"] == uid }
+                                    val myStatus = myAttendance?.get("status")?.toString() ?: "Hadir"
+
                                     if (alreadyAbsen) {
-                                        Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF10B981))
-                                        Text(" Hadir", color = Color(0xFF10B981), fontWeight = FontWeight.Bold)
+                                        val statusColor = when(myStatus) {
+                                            "Sakit" -> Color(0xFFF59E0B)
+                                            "Izin" -> Color(0xFF3B82F6)
+                                            else -> Color(0xFF10B981)
+                                        }
+                                        val statusIcon = when(myStatus) {
+                                            "Sakit" -> Icons.Default.Warning
+                                            "Izin" -> Icons.Default.Info
+                                            else -> Icons.Default.CheckCircle
+                                        }
+                                        Icon(statusIcon, null, tint = statusColor)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(myStatus, color = statusColor, fontWeight = FontWeight.Bold)
                                     } else {
-                                        Button(
-                                            onClick = {
-                                                AbsensiRepository.submitAbsensi(
-                                                    session["id"] as String,
-                                                    uid,
-                                                    studentName.value,
-                                                    onSuccess = {
-                                                        message = "Berhasil Absen!"
-                                                        loadSessions(selectedScheduleId)
-                                                    },
-                                                    onError = { message = it }
-                                                )
-                                            },
-                                            colors = ButtonDefaults.buttonColors(containerColor = bluePrimary)
-                                        ) {
-                                            Text("Absen", color = Color.White)
+                                        var selectedStatus by remember { mutableStateOf("") }
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                listOf("Hadir", "Sakit", "Izin").forEach { status ->
+                                                    val isSelected = selectedStatus == status
+                                                    val chipColor = when(status) {
+                                                        "Hadir" -> Color(0xFF10B981)
+                                                        "Sakit" -> Color(0xFFF59E0B)
+                                                        "Izin" -> Color(0xFF3B82F6)
+                                                        else -> bluePrimary
+                                                    }
+                                                    OutlinedButton(
+                                                        onClick = { selectedStatus = status },
+                                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                        border = BorderStroke(1.dp, if (isSelected) chipColor else Color.LightGray),
+                                                        colors = ButtonDefaults.outlinedButtonColors(
+                                                            containerColor = if (isSelected) chipColor.copy(0.1f) else Color.Transparent,
+                                                            contentColor = if (isSelected) chipColor else Color.Black
+                                                        ),
+                                                        shape = RoundedCornerShape(8.dp)
+                                                    ) {
+                                                        Text(status, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                                                    }
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Button(
+                                                onClick = {
+                                                    AbsensiRepository.submitAbsensi(
+                                                        session["id"] as String,
+                                                        uid,
+                                                        studentName.value,
+                                                        selectedStatus,
+                                                        onSuccess = {
+                                                            message = "Berhasil Absen!"
+                                                            loadSessions(selectedScheduleId)
+                                                        },
+                                                        onError = { message = it }
+                                                    )
+                                                },
+                                                enabled = selectedStatus.isNotEmpty(),
+                                                colors = ButtonDefaults.buttonColors(containerColor = bluePrimary)
+                                            ) {
+                                                Text("Absen", color = Color.White)
+                                            }
                                         }
                                     }
                                 }

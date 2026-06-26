@@ -1,5 +1,6 @@
 package com.myschedule.id.ui
 
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -50,6 +51,7 @@ fun StudentMaterialsScreen(navController: NavHostController, uniName: String, cl
                         title = doc.getString("title") ?: "Materi Kuliah",
                         fileName = doc.getString("fileName") ?: "file",
                         fileUrl = doc.getString("fileUrl") ?: "",
+                        linkUrl = doc.getString("linkUrl") ?: "",
                         date = doc.getString("date") ?: "-"
                     )
                 }
@@ -104,14 +106,11 @@ fun StudentMaterialsScreen(navController: NavHostController, uniName: String, cl
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(materials) { material ->
-                        MaterialItemCardInternal(material, bluePrimary) {
-                            if (material.fileUrl.isNotEmpty()) {
-                                // PERBAIKAN: Gunakan Uri.encode untuk keamanan navigasi query param
-                                val encodedUrl = Uri.encode(material.fileUrl)
-                                val encodedName = Uri.encode(material.fileName)
-                                navController.navigate("file_viewer?fileUrl=$encodedUrl&fileName=$encodedName")
-                            }
-                        }
+                        MaterialItemCardInternal(
+                            material = material,
+                            primaryColor = bluePrimary,
+                            navController = navController
+                        )
                     }
                 }
             }
@@ -120,27 +119,65 @@ fun StudentMaterialsScreen(navController: NavHostController, uniName: String, cl
 }
 
 @Composable
-private fun MaterialItemCardInternal(material: ClassMaterial, primaryColor: Color, onClick: () -> Unit) {
+private fun MaterialItemCardInternal(material: ClassMaterial, primaryColor: Color, navController: NavHostController) {
+    val context = LocalContext.current
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier.size(44.dp).background(primaryColor.copy(0.1f), shape = CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.LibraryBooks, null, tint = primaryColor)
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(44.dp).background(primaryColor.copy(0.1f), shape = CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.LibraryBooks, null, tint = primaryColor)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(material.title, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.Black)
+                    Text(material.date, fontSize = 11.sp, color = primaryColor)
+                }
             }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(material.title, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.Black)
-                Text(material.fileName, fontSize = 12.sp, color = Color.Gray)
-                Text(material.date, fontSize = 11.sp, color = primaryColor)
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (material.fileUrl.isNotEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val encodedUrl = Uri.encode(material.fileUrl)
+                            val encodedName = Uri.encode(material.fileName)
+                            navController.navigate("file_viewer?fileUrl=$encodedUrl&fileName=$encodedName")
+                        }
+                        .padding(vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.AttachFile, null, tint = primaryColor, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("File: ${material.fileName}", fontSize = 13.sp, color = primaryColor, fontWeight = FontWeight.Medium)
+                }
             }
-            Icon(Icons.Default.ChevronRight, null, tint = Color.LightGray)
+
+            if (material.linkUrl.isNotEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(material.linkUrl))
+                            context.startActivity(intent)
+                        }
+                        .padding(vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Link, null, tint = primaryColor, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Lihat Link", fontSize = 13.sp, color = primaryColor, fontWeight = FontWeight.Medium, maxLines = 1)
+                }
+            }
         }
     }
 }

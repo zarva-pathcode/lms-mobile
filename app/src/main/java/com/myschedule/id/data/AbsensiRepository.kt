@@ -48,13 +48,14 @@ object AbsensiRepository {
         absensiId: String,
         studentUid: String,
         studentName: String,
+        status: String,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
         val attendanceData = hashMapOf(
             "uid" to studentUid,
             "name" to studentName,
-            "status" to "Hadir",
+            "status" to status,
             "timestamp" to System.currentTimeMillis()
         )
 

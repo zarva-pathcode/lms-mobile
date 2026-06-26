@@ -5,5 +5,6 @@ data class ClassMaterial(
     val title: String = "",
     val fileName: String = "",
     val fileUrl: String = "",
+    val linkUrl: String = "",
     val date: String = ""
 )

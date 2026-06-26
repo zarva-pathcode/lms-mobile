@@ -1,6 +1,7 @@
 package com.myschedule.id.ui
 
 import android.app.DatePickerDialog
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -36,6 +37,7 @@ fun TeacherManageTasksScreen(navController: NavHostController, uniName: String, 
     var taskTitle by remember { mutableStateOf("") }
     var taskDesc by remember { mutableStateOf("") }
     var taskDeadline by remember { mutableStateOf("") }
+    var taskLinkUrl by remember { mutableStateOf("") }
     
     var selectedFileUri by remember { mutableStateOf<Uri?>(null) }
     var selectedFileName by remember { mutableStateOf("") }
@@ -141,13 +143,13 @@ fun TeacherManageTasksScreen(navController: NavHostController, uniName: String, 
                                 
                                 val fileUrl = task["fileUrl"]?.toString() ?: ""
                                 val fileName = task["fileName"]?.toString() ?: task["title"].toString()
+                                val linkUrl = task["linkUrl"]?.toString() ?: ""
                                 
                                 if (fileUrl.isNotEmpty() && fileUrl != "null") {
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier.clickable {
-                                            // PERBAIKAN: Gunakan Uri.encode untuk keamanan navigasi
                                             val encodedUrl = Uri.encode(fileUrl)
                                             val encodedName = Uri.encode(fileName)
                                             navController.navigate("file_viewer?fileUrl=$encodedUrl&fileName=$encodedName")
@@ -156,6 +158,21 @@ fun TeacherManageTasksScreen(navController: NavHostController, uniName: String, 
                                         Icon(Icons.Default.AttachFile, null, tint = bluePrimary, modifier = Modifier.size(14.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text("Lihat Lampiran Tugas", fontSize = 12.sp, color = bluePrimary, fontWeight = FontWeight.Medium)
+                                    }
+                                }
+                                
+                                if (linkUrl.isNotEmpty() && linkUrl != "null") {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.clickable {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(linkUrl))
+                                            context.startActivity(intent)
+                                        }
+                                    ) {
+                                        Icon(Icons.Default.Link, null, tint = bluePrimary, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Lihat Link Tugas", fontSize = 12.sp, color = bluePrimary, fontWeight = FontWeight.Medium)
                                     }
                                 }
 
@@ -216,7 +233,7 @@ fun TeacherManageTasksScreen(navController: NavHostController, uniName: String, 
 
                         Spacer(modifier = Modifier.height(8.dp))
                         
-                        Text("Lampiran File:", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        Text("Lampiran:", fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         Button(
                             onClick = { filePickerLauncher.launch("*/*") },
                             modifier = Modifier.fillMaxWidth(),
@@ -227,6 +244,15 @@ fun TeacherManageTasksScreen(navController: NavHostController, uniName: String, 
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(if (selectedFileName.isEmpty()) "Pilih File" else selectedFileName, color = Color.Black, maxLines = 1)
                         }
+
+                        OutlinedTextField(
+                            value = taskLinkUrl,
+                            onValueChange = { taskLinkUrl = it },
+                            label = { Text("Link URL (opsional)") },
+                            placeholder = { Text("https://...") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
                         
                         if (isUploading) {
                             LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = bluePrimary)
@@ -235,13 +261,14 @@ fun TeacherManageTasksScreen(navController: NavHostController, uniName: String, 
                 },
                 confirmButton = {
                     Button(
-                        enabled = !isUploading && taskTitle.isNotBlank() && taskDeadline.isNotBlank(),
+                        enabled = !isUploading && taskTitle.isNotBlank() && taskDeadline.isNotBlank() && (selectedFileUri != null || taskLinkUrl.isNotBlank()),
                         colors = ButtonDefaults.buttonColors(containerColor = bluePrimary),
                         onClick = {
                             scope.launch {
                                 isUploading = true
                                 var finalFileUrl: String? = null
                                 var finalFileName: String? = null
+                                var finalLinkUrl: String? = null
                                 
                                 try {
                                     if (selectedFileUri != null) {
@@ -261,10 +288,12 @@ fun TeacherManageTasksScreen(navController: NavHostController, uniName: String, 
                                         }
                                     }
                                     
-                                    TaskRepository.createTask(uniName, className, taskTitle, taskDesc, taskDeadline, finalFileUrl, finalFileName, {
+                                    if (taskLinkUrl.isNotBlank()) finalLinkUrl = taskLinkUrl
+                                    
+                                    TaskRepository.createTask(uniName, className, taskTitle, taskDesc, taskDeadline, finalFileUrl, finalFileName, finalLinkUrl, {
                                         Toast.makeText(context, "Tugas berhasil dibuat!", Toast.LENGTH_SHORT).show()
                                         showCreateDialog = false
-                                        taskTitle = ""; taskDesc = ""; taskDeadline = ""; selectedFileUri = null; selectedFileName = ""
+                                        taskTitle = ""; taskDesc = ""; taskDeadline = ""; taskLinkUrl = ""; selectedFileUri = null; selectedFileName = ""
                                         isUploading = false
                                         loadTasks()
                                     }, {

@@ -1,5 +1,7 @@
 package com.myschedule.id.ui
 
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -11,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,7 +27,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.myschedule.id.data.TaskRepository
-import android.net.Uri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -141,9 +143,9 @@ fun GradeTaskItemInternal(
             } else {
                 Text("Status: Sudah mengumpulkan", color = Color(0xFF059669), fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
                 
-                // PERBAIKAN: Menggunakan fileUrl dan navigasi query param
                 val fileUrl = submission["fileUrl"]?.toString() ?: ""
                 val fileName = submission["fileName"]?.toString() ?: "File Tugas"
+                val submissionLink = submission["submissionLink"]?.toString() ?: ""
                 
                 if (fileUrl.isNotEmpty()) {
                     Row(
@@ -159,6 +161,22 @@ fun GradeTaskItemInternal(
                         Icon(Icons.Default.FileOpen, null, tint = primaryColor, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(fileName, color = primaryColor, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+                
+                if (submissionLink.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .padding(top = 4.dp)
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(submissionLink))
+                                context.startActivity(intent)
+                            },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Filled.Link, null, tint = primaryColor, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Lihat Link", color = primaryColor, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }

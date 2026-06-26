@@ -1,6 +1,9 @@
 package com.myschedule.id.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,6 +33,7 @@ fun StudentGradesScreen(navController: NavHostController, uniName: String, class
     var tasksWithGrades by remember { mutableStateOf(listOf<Pair<Map<String, Any>, Map<String, Any>?>>()) }
     var isLoading by remember { mutableStateOf(true) }
     val uid = FirebaseInstance.auth.currentUser?.uid ?: ""
+    val context = LocalContext.current
 
     // Tema Biru Konsisten
     val bluePrimary = Color(0xFF1565C0)
@@ -99,14 +103,20 @@ fun StudentGradesScreen(navController: NavHostController, uniName: String, class
                 ) {
                     items(tasksWithGrades) { (task, submission) ->
                         GradeItemCardInternal(task, submission, bluePrimary) {
-                            if (submission != null && submission["fileUrl"] != null) {
-                                val url = submission["fileUrl"].toString()
-                                val name = submission["fileName"]?.toString() ?: "Tugas Saya"
-                                if (url.isNotEmpty() && url != "null") {
-                                    val encodedUrl = URLEncoder.encode(url, "UTF-8")
-                                    val encodedName = URLEncoder.encode(name, "UTF-8")
-                                    // PERBAIKAN: Navigasi menggunakan Query Params agar URL tidak pecah
-                                    navController.navigate("file_viewer?fileUrl=$encodedUrl&fileName=$encodedName")
+                            if (submission != null) {
+                                val fileUrl = submission["fileUrl"]?.toString() ?: ""
+                                val fileName = submission["fileName"]?.toString() ?: "Tugas Saya"
+                                val submissionLink = submission["submissionLink"]?.toString() ?: ""
+                                when {
+                                    fileUrl.isNotEmpty() && fileUrl != "null" -> {
+                                        val encodedUrl = URLEncoder.encode(fileUrl, "UTF-8")
+                                        val encodedName = URLEncoder.encode(fileName, "UTF-8")
+                                        navController.navigate("file_viewer?fileUrl=$encodedUrl&fileName=$encodedName")
+                                    }
+                                    submissionLink.isNotEmpty() -> {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(submissionLink))
+                                        context.startActivity(intent)
+                                    }
                                 }
                             }
                         }
@@ -147,7 +157,15 @@ fun GradeItemCardInternal(task: Map<String, Any>, submission: Map<String, Any>?,
                     color = if (submission == null) Color.Red else Color(0xFF059669)
                 )
                 if (submission != null) {
-                    Text("(Klik untuk melihat file)", fontSize = 10.sp, color = Color.Gray)
+                    val hasFile = submission["fileUrl"]?.toString()?.isNotEmpty() == true
+                    val hasLink = submission["submissionLink"]?.toString()?.isNotEmpty() == true
+                    val label = when {
+                        hasFile && hasLink -> "File + Link"
+                        hasFile -> "File"
+                        hasLink -> "Link"
+                        else -> "Sudah dikumpulkan"
+                    }
+                    Text("(Klik untuk lihat $label)", fontSize = 10.sp, color = Color.Gray)
                 }
             }
             Column(horizontalAlignment = Alignment.End) {

@@ -27,6 +27,7 @@ import com.myschedule.id.UserSession
 @Composable
 fun TeacherHomeScreen(navController: NavHostController) {
     var managedCampus by remember { mutableStateOf(listOf<Map<String, String>>()) }
+    var dosenName by remember { mutableStateOf("") }
     val uid = FirebaseInstance.auth.currentUser?.uid ?: ""
 
     // Tema Biru Baru untuk Top Bar dan Komponen
@@ -42,6 +43,7 @@ fun TeacherHomeScreen(navController: NavHostController) {
                 managedCampus = managed
                 
                 UserSession.profileImageUri = doc.getString("profileImageUri")
+                dosenName = doc.getString("name") ?: "Dosen"
             }
     }
 
@@ -82,7 +84,7 @@ fun TeacherHomeScreen(navController: NavHostController) {
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Dashboard Dosen", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                        Text("Pilih universitas untuk dikelola", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                        Text(dosenName, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
                     }
 
                     IconButton(onClick = { navController.navigate("logout") }) {

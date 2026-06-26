@@ -1,5 +1,6 @@
 package com.myschedule.id.ui
 
+import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import android.widget.Toast
@@ -33,11 +34,15 @@ import kotlinx.coroutines.launch
 fun StudentTugasScreen(navController: NavHostController, uniName: String, className: String) {
     var studentName by remember { mutableStateOf("") }
     var classTasks by remember { mutableStateOf(listOf<Map<String, Any>>()) }
+    var refreshKey by remember { mutableStateOf(0) }
     
     var selectedTaskForSubmission by remember { mutableStateOf<Map<String, Any>?>(null) }
+    var currentStudentSubmission by remember { mutableStateOf<Map<String, Any>?>(null) }
     var selectedFileUri by remember { mutableStateOf<Uri?>(null) }
     var selectedFileName by remember { mutableStateOf("") }
     var isUploading by remember { mutableStateOf(false) }
+    var isLinkMode by remember { mutableStateOf(false) }
+    var submissionLinkUrl by remember { mutableStateOf("") }
 
     val uid = FirebaseInstance.auth.currentUser?.uid ?: ""
     val context = LocalContext.current
@@ -54,6 +59,7 @@ fun StudentTugasScreen(navController: NavHostController, uniName: String, classN
                 studentName = doc.getString("name") ?: "Mahasiswa"
                 TaskRepository.getTasksByClass(uniName, className) { tasks ->
                     classTasks = tasks.sortedByDescending { it["createdAt"] as? com.google.firebase.Timestamp }
+                    refreshKey++
                 }
             }
     }
@@ -104,7 +110,7 @@ fun StudentTugasScreen(navController: NavHostController, uniName: String, classN
                     items(classTasks) { task ->
                         var studentSubmission by remember { mutableStateOf<Map<String, Any>?>(null) }
                         
-                        LaunchedEffect(task["id"]) {
+                        LaunchedEffect(task["id"], refreshKey) {
                             TaskRepository.getStudentSubmission(task["id"] as String, uid) {
                                 studentSubmission = it
                             }
@@ -137,22 +143,28 @@ fun StudentTugasScreen(navController: NavHostController, uniName: String, classN
                                         Text("Lihat Lampiran Tugas", fontSize = 12.sp, color = bluePrimary)
                                     }
                                 }
+                                
+                                val taskLinkUrl = task["linkUrl"]?.toString() ?: ""
+                                if (taskLinkUrl.isNotEmpty() && taskLinkUrl != "null") {
+                                    TextButton(onClick = {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(taskLinkUrl))
+                                        context.startActivity(intent)
+                                    }) {
+                                        Icon(Icons.Default.Link, null, modifier = Modifier.size(16.dp), tint = bluePrimary)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Lihat Link Tugas", fontSize = 12.sp, color = bluePrimary)
+                                    }
+                                }
 
                                 if (studentSubmission != null) {
                                     val grade = studentSubmission!!["grade"]?.toString() ?: ""
+                                    val subFileUrl = studentSubmission!!["fileUrl"]?.toString() ?: ""
+                                    val subFileName = studentSubmission!!["fileName"]?.toString() ?: ""
+                                    val subLink = studentSubmission!!["submissionLink"]?.toString() ?: ""
                                     Spacer(modifier = Modifier.height(12.dp))
                                     Surface(
                                         color = if (grade.isNotEmpty()) Color(0xFF10B981).copy(0.1f) else Color.Gray.copy(0.1f),
-                                        shape = RoundedCornerShape(4.dp),
-                                        modifier = Modifier.clickable {
-                                            val url = studentSubmission!!["fileUrl"].toString()
-                                            val name = studentSubmission!!["fileName"].toString()
-                                            if (url.isNotEmpty()) {
-                                                val encodedUrl = Uri.encode(url)
-                                                val encodedName = Uri.encode(name)
-                                                navController.navigate("file_viewer?fileUrl=$encodedUrl&fileName=$encodedName")
-                                            }
-                                        }
+                                        shape = RoundedCornerShape(4.dp)
                                     ) {
                                         Column(modifier = Modifier.padding(8.dp)) {
                                             Text(
@@ -161,12 +173,34 @@ fun StudentTugasScreen(navController: NavHostController, uniName: String, classN
                                                 color = if (grade.isNotEmpty()) Color(0xFF059669) else Color.Gray,
                                                 fontWeight = FontWeight.Bold
                                             )
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(Icons.Default.AttachFile, null, modifier = Modifier.size(14.dp), tint = Color.Gray)
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("File: ${studentSubmission!!["fileName"]}", fontSize = 11.sp, color = Color.Gray)
+                                            if (subFileUrl.isNotEmpty()) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.clickable {
+                                                        val encodedUrl = Uri.encode(subFileUrl)
+                                                        val encodedName = Uri.encode(subFileName)
+                                                        navController.navigate("file_viewer?fileUrl=$encodedUrl&fileName=$encodedName")
+                                                    }.padding(vertical = 2.dp)
+                                                ) {
+                                                    Icon(Icons.Default.AttachFile, null, modifier = Modifier.size(14.dp), tint = Color.Gray)
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text("File: $subFileName", fontSize = 11.sp, color = Color.Gray)
+                                                }
                                             }
-                                            Text("(Klik untuk melihat file)", fontSize = 10.sp, color = Color.Gray.copy(alpha = 0.7f))
+                                            if (subLink.isNotEmpty()) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.clickable {
+                                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(subLink))
+                                                        context.startActivity(intent)
+                                                    }.padding(vertical = 2.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Link, null, modifier = Modifier.size(14.dp), tint = Color.Gray)
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text("Lihat Link", fontSize = 11.sp, color = Color.Gray)
+                                                }
+                                            }
+                                            Text("(Klik untuk lihat)", fontSize = 10.sp, color = Color.Gray.copy(alpha = 0.7f))
                                         }
                                     }
                                 }
@@ -175,13 +209,23 @@ fun StudentTugasScreen(navController: NavHostController, uniName: String, classN
                                 
                                 Button(
                                     onClick = { 
+                                        val sub = studentSubmission
                                         selectedTaskForSubmission = task
-                                        selectedFileName = studentSubmission?.get("fileName")?.toString() ?: ""
+                                        currentStudentSubmission = sub
+                                        selectedFileName = sub?.get("fileName")?.toString() ?: ""
+                                        submissionLinkUrl = sub?.get("submissionLink")?.toString() ?: ""
+                                        isLinkMode = sub?.get("submissionLink")?.toString()?.isNotEmpty() == true
                                     },
                                     modifier = Modifier.align(Alignment.End),
                                     colors = ButtonDefaults.buttonColors(containerColor = bluePrimary)
                                 ) {
-                                    Text(if (studentSubmission != null) "Ganti File" else "Kumpulkan File", color = Color.White)
+                                    val hasSubmissionLink = studentSubmission?.get("submissionLink")?.toString()?.isNotEmpty() ?: false
+                                    Text(
+                                        if (studentSubmission != null) {
+                                            if (hasSubmissionLink) "Ganti Link" else "Ganti File"
+                                        } else "Kumpulkan Tugas",
+                                        color = Color.White
+                                    )
                                 }
                             }
                         }
@@ -198,16 +242,58 @@ fun StudentTugasScreen(navController: NavHostController, uniName: String, classN
                     Column {
                         Text(selectedTaskForSubmission!!["title"].toString(), fontWeight = FontWeight.Medium)
                         Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Button(
-                            onClick = { filePickerLauncher.launch("*/*") },
+
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray),
-                            enabled = !isUploading
+                            horizontalArrangement = Arrangement.Center
                         ) {
-                            Icon(Icons.Default.UploadFile, null, tint = Color.Black)
+                            Button(
+                                onClick = { isLinkMode = false },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (!isLinkMode) bluePrimary else Color.LightGray
+                                ),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.UploadFile, null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Upload File", fontSize = 12.sp, color = if (!isLinkMode) Color.White else Color.Black)
+                            }
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(if (selectedFileName.isEmpty()) "Pilih File" else selectedFileName, color = Color.Black, maxLines = 1)
+                            Button(
+                                onClick = { isLinkMode = true },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isLinkMode) bluePrimary else Color.LightGray
+                                ),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.Link, null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Link URL", fontSize = 12.sp, color = if (isLinkMode) Color.White else Color.Black)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        if (isLinkMode) {
+                            OutlinedTextField(
+                                value = submissionLinkUrl,
+                                onValueChange = { submissionLinkUrl = it },
+                                label = { Text("Link URL") },
+                                placeholder = { Text("https://...") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                        } else {
+                            Button(
+                                onClick = { filePickerLauncher.launch("*/*") },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray),
+                                enabled = !isUploading
+                            ) {
+                                Icon(Icons.Default.UploadFile, null, tint = Color.Black)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(if (selectedFileName.isEmpty()) "Pilih File" else selectedFileName, color = Color.Black, maxLines = 1)
+                            }
                         }
 
                         if (isUploading) {
@@ -218,36 +304,60 @@ fun StudentTugasScreen(navController: NavHostController, uniName: String, classN
                 },
                 confirmButton = {
                     Button(
-                        enabled = !isUploading && selectedFileUri != null,
+                        enabled = !isUploading && (if (isLinkMode) submissionLinkUrl.isNotBlank() else selectedFileUri != null),
                         colors = ButtonDefaults.buttonColors(containerColor = bluePrimary),
                         onClick = {
                             scope.launch {
                                 isUploading = true
                                 try {
-                                    val bytes = context.contentResolver.openInputStream(selectedFileUri!!)?.readBytes()
-                                    if (bytes != null) {
-                                        val fileName = "${uid}_${System.currentTimeMillis()}_${selectedFileName.replace(" ", "_")}"
-                                        val bucket = SupabaseInstance.client.storage.from("submissions")
-                                        bucket.upload(fileName, bytes) { upsert = true }
-                                        val publicUrl = bucket.publicUrl(fileName)
-                                        
-                                        TaskRepository.submitTaskFile(
+                                    if (isLinkMode) {
+                                        TaskRepository.submitTaskLink(
                                             selectedTaskForSubmission!!["id"] as String,
-                                            uid, studentName, publicUrl, selectedFileName,
+                                            uid, studentName, submissionLinkUrl,
                                             onSuccess = {
                                                 isUploading = false
                                                 selectedTaskForSubmission = null
                                                 selectedFileUri = null
                                                 selectedFileName = ""
+                                                submissionLinkUrl = ""
+                                                isLinkMode = false
                                                 loadData()
                                                 Toast.makeText(context, "Tugas berhasil dikumpulkan", Toast.LENGTH_SHORT).show()
                                             },
-                                            onError = { 
+                                            onError = {
                                                 isUploading = false
                                                 Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
                                                 Log.e("StudentTugasScreen", it)
                                             }
                                         )
+                                    } else {
+                                        val bytes = context.contentResolver.openInputStream(selectedFileUri!!)?.readBytes()
+                                        if (bytes != null) {
+                                            val fileName = "${uid}_${System.currentTimeMillis()}_${selectedFileName.replace(" ", "_")}"
+                                            val bucket = SupabaseInstance.client.storage.from("submissions")
+                                            bucket.upload(fileName, bytes) { upsert = true }
+                                            val publicUrl = bucket.publicUrl(fileName)
+                                            
+                                            TaskRepository.submitTaskFile(
+                                                selectedTaskForSubmission!!["id"] as String,
+                                                uid, studentName, publicUrl, selectedFileName,
+                                                onSuccess = {
+                                                    isUploading = false
+                                                    selectedTaskForSubmission = null
+                                                    selectedFileUri = null
+                                                    selectedFileName = ""
+                                                    submissionLinkUrl = ""
+                                                    isLinkMode = false
+                                                    loadData()
+                                                    Toast.makeText(context, "Tugas berhasil dikumpulkan", Toast.LENGTH_SHORT).show()
+                                                },
+                                                onError = { 
+                                                    isUploading = false
+                                                    Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+                                                    Log.e("StudentTugasScreen", it)
+                                                }
+                                            )
+                                        }
                                     }
                                 } catch (e: Exception) {
                                     isUploading = false
@@ -258,7 +368,34 @@ fun StudentTugasScreen(navController: NavHostController, uniName: String, classN
                     ) { Text("Kirim", color = Color.White) }
                 },
                 dismissButton = {
-                    TextButton(enabled = !isUploading, onClick = { selectedTaskForSubmission = null }) { Text("Batal") }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val taskId = selectedTaskForSubmission!!["id"] as String
+                        if (currentStudentSubmission != null) {
+                            TextButton(
+                                enabled = !isUploading,
+                                onClick = {
+                                    TaskRepository.deleteSubmission(taskId, uid, {
+                                        currentStudentSubmission = null
+                                        selectedTaskForSubmission = null
+                                        loadData()
+                                        Toast.makeText(context, "Submission dihapus", Toast.LENGTH_SHORT).show()
+                                    }, {
+                                        Toast.makeText(context, "Gagal hapus: $it", Toast.LENGTH_SHORT).show()
+                                    })
+                                },
+                                colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                            ) {
+                                Icon(Icons.Default.Delete, null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Hapus")
+                            }
+                        }
+                        TextButton(enabled = !isUploading, onClick = { selectedTaskForSubmission = null }) { Text("Batal") }
+                    }
                 }
             )
         }

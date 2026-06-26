@@ -35,6 +35,7 @@ fun SignUpScreen(navController: NavHostController) {
     var passwordVisible by remember { mutableStateOf(false) }
 
     // Field tambahan
+    var nidnNim by remember { mutableStateOf("") }
     var universitas by remember { mutableStateOf("") }
 
     // Dropdown States
@@ -59,6 +60,7 @@ fun SignUpScreen(navController: NavHostController) {
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFE3F2FD))
+            .imePadding()
             .padding(16.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -152,6 +154,21 @@ fun SignUpScreen(navController: NavHostController) {
 
         Spacer(modifier = Modifier.height(10.dp))
 
+        OutlinedTextField(
+            value = nidnNim,
+            onValueChange = {
+                val isValid = if (role == "student") it.all { c -> c.isLetterOrDigit() }
+                              else it.all { c -> c.isDigit() }
+                if (isValid) nidnNim = it
+            },
+            label = { Text(if (role == "student") "NIM (Nomor Induk Mahasiswa)" else "NIDN (Nomor Induk Dosen Nasional)", color = textColor) },
+            keyboardOptions = KeyboardOptions(keyboardType = if (role == "student") KeyboardType.Ascii else KeyboardType.Number),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
         // ==========================
         // UNIVERSITAS (Mahasiswa: Dropdown, Dosen: Input/Dropdown)
         // ==========================
@@ -195,59 +212,84 @@ fun SignUpScreen(navController: NavHostController) {
         } else {
             Button(
                 onClick = {
-                    if (name.isBlank() || email.isBlank() || password.isBlank() || universitas.isBlank()) {
+                    if (name.isBlank() || email.isBlank() || password.isBlank() || nidnNim.isBlank() || universitas.isBlank()) {
                         errorMessage = "Semua field wajib diisi"
+                        return@Button
+                    }
+
+                    val regex = if (role == "student") Regex("^[a-zA-Z0-9]{5,20}$") else Regex("^[0-9]{8,15}$")
+                    if (!nidnNim.matches(regex)) {
+                        errorMessage = if (role == "student") "NIM harus 5-20 karakter (huruf/angka)" else "NIDN harus 8-15 digit angka"
                         return@Button
                     }
 
                     isLoading = true
                     errorMessage = ""
 
-                    FirebaseInstance.auth.createUserWithEmailAndPassword(email, password)
-                        .addOnSuccessListener { result ->
-                            val uid = result.user?.uid ?: ""
-                            val userRef = FirebaseInstance.db.collection("users").document(uid)
-                            val uniRef = FirebaseInstance.db.collection("universities").document(universitas)
+                    val docId = if (role == "student") "nim_$nidnNim" else "nidn_$nidnNim"
+                    FirebaseInstance.db.collection("lookup").document(docId).get()
+                        .addOnSuccessListener { snapshot ->
+                            if (snapshot.exists()) {
+                                errorMessage = if (role == "student") "NIM sudah terdaftar" else "NIDN sudah terdaftar"
+                                isLoading = false
+                                return@addOnSuccessListener
+                            }
 
-                            FirebaseInstance.db.runTransaction { transaction ->
-                                // 1. Data User
-                                val userData = mutableMapOf(
-                                    "uid" to uid,
-                                    "name" to name,
-                                    "email" to email,
-                                    "role" to role,
-                                    "universitas" to universitas,
-                                    "enrolled_classes" to listOf<String>()
-                                )
+                            FirebaseInstance.auth.createUserWithEmailAndPassword(email, password)
+                                .addOnSuccessListener { result ->
+                                    val uid = result.user?.uid ?: ""
+                                    val userRef = FirebaseInstance.db.collection("users").document(uid)
+                                    val uniRef = FirebaseInstance.db.collection("universities").document(universitas)
+                                    val lookupRef = FirebaseInstance.db.collection("lookup").document(docId)
 
-                                if (role == "teacher") {
-                                    // DOSEN: Universitas yang diinput saat signup langsung masuk ke list "managed_campus"
-                                    userData["managed_campus"] = listOf(
-                                        mapOf("uni" to universitas, "kelas" to "Umum") 
-                                    )
+                                    FirebaseInstance.db.runTransaction { transaction ->
+                                        val userData = mutableMapOf(
+                                            "uid" to uid,
+                                            "name" to name,
+                                            "email" to email,
+                                            "role" to role,
+                                            "universitas" to universitas,
+                                            "enrolled_classes" to listOf<String>()
+                                        )
 
-                                    // 2. Pastikan Universitas terdaftar di koleksi global 'universities'
-                                    val uniSnapshot = transaction.get(uniRef)
-                                    if (!uniSnapshot.exists()) {
-                                        transaction.set(uniRef, hashMapOf("status" to "active", "classes" to listOf<String>()))
+                                        if (role == "student") {
+                                            userData["nim"] = nidnNim
+                                        } else {
+                                            userData["nidn"] = nidnNim
+                                        }
+
+                                        if (role == "teacher") {
+                                            userData["managed_campus"] = listOf(
+                                                mapOf("uni" to universitas, "kelas" to "Umum")
+                                            )
+
+                                            val uniSnapshot = transaction.get(uniRef)
+                                            if (!uniSnapshot.exists()) {
+                                                transaction.set(uniRef, hashMapOf("status" to "active", "classes" to listOf<String>()))
+                                            }
+                                        }
+
+                                        transaction.set(userRef, userData)
+                                        transaction.set(lookupRef, mapOf("uid" to uid))
+                                        null
+                                    }.addOnSuccessListener {
+                                        isLoading = false
+                                        navController.navigate("login") {
+                                            popUpTo("signup") { inclusive = true }
+                                        }
+                                    }.addOnFailureListener {
+                                        isLoading = false
+                                        errorMessage = "Gagal simpan data: ${it.message}"
                                     }
                                 }
-
-                                transaction.set(userRef, userData)
-                                null
-                            }.addOnSuccessListener {
-                                isLoading = false
-                                navController.navigate("login") {
-                                    popUpTo("signup") { inclusive = true }
+                                .addOnFailureListener {
+                                    isLoading = false
+                                    errorMessage = "Gagal daftar: ${it.message}"
                                 }
-                            }.addOnFailureListener {
-                                isLoading = false
-                                errorMessage = "Gagal simpan data: ${it.message}"
-                            }
                         }
                         .addOnFailureListener {
                             isLoading = false
-                            errorMessage = "Gagal daftar: ${it.message}"
+                            errorMessage = "Gagal cek NIM/NIDN: ${it.message}"
                         }
                 },
                 modifier = Modifier.fillMaxWidth(),

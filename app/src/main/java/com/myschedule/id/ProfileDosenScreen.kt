@@ -37,7 +37,7 @@ fun ProfileDosenScreen(navController: NavHostController) {
     var isEditMode by remember { mutableStateOf(false) }
 
     var nama by remember { mutableStateOf(UserSession.username) }
-    var nidn by remember { mutableStateOf("0123456789") }
+    var nidn by remember { mutableStateOf(UserSession.nidn) }
     var email by remember { mutableStateOf(UserSession.email.ifEmpty { "dosen@kampus.ac.id" }) }
     var noHp by remember { mutableStateOf("081234567890") }
     var prodi by remember { mutableStateOf("Teknik Informatika") }
@@ -54,6 +54,19 @@ fun ProfileDosenScreen(navController: NavHostController) {
     var isUploading by remember { mutableStateOf(false) }
 
     val uid = FirebaseInstance.auth.currentUser?.uid ?: "dosen_default"
+
+    LaunchedEffect(Unit) {
+        FirebaseInstance.db.collection("users").document(uid).get()
+            .addOnSuccessListener { doc ->
+                nama = doc.getString("name") ?: ""
+                email = doc.getString("email") ?: ""
+                nidn = doc.getString("nidn") ?: ""
+                if (nidn.isEmpty()) nidn = "-"
+            }
+            .addOnFailureListener {
+                if (nidn.isEmpty()) nidn = "-"
+            }
+    }
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -187,8 +200,9 @@ fun ProfileDosenScreen(navController: NavHostController) {
                 onClick = {
                     if (isEditMode) {
                         UserSession.username = nama
+                        UserSession.nidn = nidn
                         FirebaseInstance.db.collection("users").document(uid)
-                            .update("name", nama)
+                            .update(mapOf("name" to nama, "nidn" to nidn))
                         Toast.makeText(context, "Profil berhasil disimpan", Toast.LENGTH_SHORT).show()
                     }
                     isEditMode = !isEditMode

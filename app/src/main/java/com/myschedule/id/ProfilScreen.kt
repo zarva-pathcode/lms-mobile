@@ -52,6 +52,14 @@ fun ProfileScreen(navController: NavHostController) {
 
     val uid = FirebaseInstance.auth.currentUser?.uid ?: "default_user"
 
+    LaunchedEffect(Unit) {
+        FirebaseInstance.db.collection("users").document(uid).get()
+            .addOnSuccessListener { doc ->
+                name = doc.getString("name") ?: ""
+                UserSession.studentId = doc.getString("nim") ?: ""
+            }
+    }
+
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->

@@ -1,5 +1,6 @@
 package com.myschedule.id
 
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -33,7 +34,8 @@ data class MaterialItem(
     val course: String,
     val date: String,
     val fileUrl: String,
-    val fileName: String
+    val fileName: String,
+    val linkUrl: String = ""
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,7 +61,8 @@ fun MaterialsScreen(navController: NavHostController) {
                         course = doc.getString("course") ?: "",
                         date = doc.getString("date") ?: "",
                         fileUrl = doc.getString("fileUrl") ?: "",
-                        fileName = doc.getString("fileName") ?: "File Materi"
+                        fileName = doc.getString("fileName") ?: "File Materi",
+                        linkUrl = doc.getString("linkUrl") ?: ""
                     )
                 }
                 isLoading = false
@@ -94,14 +97,7 @@ fun MaterialsScreen(navController: NavHostController) {
                     contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
                 ) {
                     items(materials) { material ->
-                        MaterialCard(material) {
-                            if (material.fileUrl.isNotEmpty()) {
-                                val encodedUrl = URLEncoder.encode(material.fileUrl, "UTF-8")
-                                val encodedName = URLEncoder.encode(material.fileName, "UTF-8")
-                                // PERBAIKAN: Menggunakan Query Params
-                                navController.navigate("file_viewer?fileUrl=$encodedUrl&fileName=$encodedName")
-                            }
-                        }
+                        MaterialCard(material, navController)
                         Spacer(modifier = Modifier.height(12.dp))
                     }
                 }
@@ -124,6 +120,7 @@ fun MaterialsScreen(navController: NavHostController) {
 fun AddMaterialDialog(onDismiss: () -> Unit, onSuccess: () -> Unit) {
     var title by remember { mutableStateOf("") }
     var course by remember { mutableStateOf("") }
+    var linkUrl by remember { mutableStateOf("") }
     var selectedFileUri by remember { mutableStateOf<Uri?>(null) }
     var selectedFileName by remember { mutableStateOf("") }
     var isUploading by remember { mutableStateOf(false) }
@@ -162,41 +159,73 @@ fun AddMaterialDialog(onDismiss: () -> Unit, onSuccess: () -> Unit) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(if (selectedFileName.isEmpty()) "Pilih File" else selectedFileName, color = Color.Black, maxLines = 1)
                 }
+
+                OutlinedTextField(
+                    value = linkUrl,
+                    onValueChange = { linkUrl = it },
+                    label = { Text("Link URL (opsional)") },
+                    placeholder = { Text("https://...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
                 
-                if (isUploading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = Color(0xFF1565C0))
+                if (isUploading) {
+                    Text("Sedang mengupload...", fontSize = 12.sp, color = Color.Gray)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = Color(0xFF1565C0))
+                }
             }
         },
         confirmButton = {
+            val isLinkOnly = selectedFileUri == null && linkUrl.isNotBlank()
             Button(
-                enabled = !isUploading && title.isNotBlank() && selectedFileUri != null,
+                enabled = !isUploading && title.isNotBlank() && (selectedFileUri != null || linkUrl.isNotBlank()),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0)),
                 onClick = {
-                    scope.launch {
-                        isUploading = true
-                        try {
-                            val bytes = context.contentResolver.openInputStream(selectedFileUri!!)?.readBytes()
-                            if (bytes != null) {
-                                val ext = selectedFileName.substringAfterLast('.', "pdf")
-                                val fileName = "mat_${System.currentTimeMillis()}.$ext"
-                                val bucket = SupabaseInstance.client.storage.from("materials")
-                                bucket.upload(fileName, bytes) { upsert = true }
-                                val fileUrl = bucket.publicUrl(fileName)
-                                
-                                val data = hashMapOf(
-                                    "title" to title,
-                                    "course" to course,
-                                    "fileUrl" to fileUrl,
-                                    "fileName" to selectedFileName,
-                                    "date" to java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date())
-                                )
-                                
-                                FirebaseInstance.db.collection("materials").add(data)
-                                    .addOnSuccessListener { onSuccess() }
+                    val data = hashMapOf(
+                        "title" to title,
+                        "course" to course,
+                        "fileUrl" to "",
+                        "fileName" to if (selectedFileUri != null) selectedFileName else "",
+                        "linkUrl" to linkUrl,
+                        "date" to java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date())
+                    )
+
+                    if (isLinkOnly) {
+                        FirebaseInstance.db.collection("materials").add(data)
+                            .addOnSuccessListener { onSuccess() }
+                            .addOnFailureListener {
+                                Toast.makeText(context, "Gagal simpan", Toast.LENGTH_SHORT).show()
+                                onDismiss()
                             }
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "Gagal: ${e.message}", Toast.LENGTH_SHORT).show()
-                        } finally {
-                            isUploading = false
+                    } else {
+                        scope.launch {
+                            isUploading = true
+                            try {
+                                val bytes = context.contentResolver.openInputStream(selectedFileUri!!)?.readBytes()
+                                if (bytes != null) {
+                                    val ext = selectedFileName.substringAfterLast('.', "pdf")
+                                    val storageName = "mat_${System.currentTimeMillis()}.$ext"
+                                    val bucket = SupabaseInstance.client.storage.from("materials")
+                                    bucket.upload(storageName, bytes) { upsert = true }
+                                    data["fileUrl"] = bucket.publicUrl(storageName)
+                                }
+
+                                FirebaseInstance.db.collection("materials").add(data)
+                                    .addOnSuccessListener {
+                                        isUploading = false
+                                        onSuccess()
+                                    }
+                                    .addOnFailureListener {
+                                        isUploading = false
+                                        Toast.makeText(context, "Gagal simpan", Toast.LENGTH_SHORT).show()
+                                        onDismiss()
+                                    }
+                            } catch (e: Exception) {
+                                isUploading = false
+                                Toast.makeText(context, "Gagal: ${e.message}", Toast.LENGTH_SHORT).show()
+                                onDismiss()
+                            }
                         }
                     }
                 }
@@ -228,30 +257,68 @@ fun HeaderSection() {
 }
 
 @Composable
-fun MaterialCard(material: MaterialItem, onClick: () -> Unit) {
+fun MaterialCard(material: MaterialItem, navController: NavHostController) {
+    val context = LocalContext.current
     Card(
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(2.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        modifier = Modifier.fillMaxWidth().clickable { onClick() }
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier.size(44.dp).background(Color(0xFF1565C0).copy(0.1f), shape = RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.LibraryBooks, contentDescription = null, tint = Color(0xFF1565C0))
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(44.dp).background(Color(0xFF1565C0).copy(0.1f), shape = RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.LibraryBooks, contentDescription = null, tint = Color(0xFF1565C0))
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = material.title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.Black)
+                    Text(text = material.course, fontSize = 13.sp, color = Color.Gray)
+                    Text(text = material.date, fontSize = 12.sp, color = Color(0xFF1565C0))
+                }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = material.title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.Black)
-                Text(text = material.course, fontSize = 13.sp, color = Color.Gray)
-                Text(text = material.date, fontSize = 12.sp, color = Color(0xFF1565C0))
+            if (material.fileUrl.isNotEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val encodedUrl = URLEncoder.encode(material.fileUrl, "UTF-8")
+                            val encodedName = URLEncoder.encode(material.fileName, "UTF-8")
+                            navController.navigate("file_viewer?fileUrl=$encodedUrl&fileName=$encodedName")
+                        }
+                        .padding(vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.AttachFile, null, tint = Color(0xFF1565C0), modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("File: ${material.fileName}", fontSize = 13.sp, color = Color(0xFF1565C0), fontWeight = FontWeight.Medium)
+                }
             }
 
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.LightGray)
+            if (material.linkUrl.isNotEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(material.linkUrl))
+                            context.startActivity(intent)
+                        }
+                        .padding(vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Link, null, tint = Color(0xFF1565C0), modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Lihat Link", fontSize = 13.sp, color = Color(0xFF1565C0), fontWeight = FontWeight.Medium, maxLines = 1)
+                }
+            }
         }
     }
 }

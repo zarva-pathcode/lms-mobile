@@ -13,7 +13,8 @@ object TaskRepository {
         description: String,
         deadline: String,
         fileUrl: String? = null,
-        fileName: String? = null, // Tambahan: Simpan nama file asli
+        fileName: String? = null,
+        linkUrl: String? = null,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
@@ -25,6 +26,7 @@ object TaskRepository {
             "deadline" to deadline,
             "fileUrl" to fileUrl,
             "fileName" to fileName,
+            "linkUrl" to linkUrl,
             "createdAt" to FieldValue.serverTimestamp()
         )
 
@@ -75,6 +77,29 @@ object TaskRepository {
             .addOnFailureListener { onError(it.message ?: "Gagal mengumpulkan tugas") }
     }
 
+    // Student: Submit Task Link (without file)
+    fun submitTaskLink(
+        taskId: String,
+        studentUid: String,
+        studentName: String,
+        linkUrl: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val submissionData = hashMapOf(
+            "studentUid" to studentUid,
+            "studentName" to studentName,
+            "submissionLink" to linkUrl,
+            "submittedAt" to FieldValue.serverTimestamp()
+        )
+
+        FirebaseInstance.db.collection("tasks").document(taskId)
+            .collection("submissions").document(studentUid)
+            .set(submissionData)
+            .addOnSuccessListener { onSuccess() }
+            .addOnFailureListener { onError(it.message ?: "Gagal mengumpulkan tugas") }
+    }
+
     // Get Submissions for a task
     fun getSubmissions(taskId: String, onResult: (List<Map<String, Any>>) -> Unit) {
         FirebaseInstance.db.collection("tasks").document(taskId)
@@ -107,5 +132,14 @@ object TaskRepository {
             .update("grade", grade)
             .addOnSuccessListener { onSuccess() }
             .addOnFailureListener { onError(it.message ?: "Gagal update nilai") }
+    }
+
+    // Student: Delete own submission
+    fun deleteSubmission(taskId: String, studentUid: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        FirebaseInstance.db.collection("tasks").document(taskId)
+            .collection("submissions").document(studentUid)
+            .delete()
+            .addOnSuccessListener { onSuccess() }
+            .addOnFailureListener { onError(it.message ?: "Gagal hapus submission") }
     }
 }
