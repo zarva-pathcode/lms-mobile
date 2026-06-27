@@ -25,6 +25,7 @@ fun TeacherClassDashboardScreen(navController: NavHostController, uniName: Strin
 
     val menuItems = listOf(
         DashboardMenu("Jadwal & Absensi", Icons.Default.CalendarMonth, "teacher_manage_absensi/$uniName/$className"),
+        DashboardMenu("Buat Quiz", Icons.Default.Quiz, "teacher_manage_quiz/$uniName/$className"),
         DashboardMenu("Kelola Tugas", Icons.Default.Assignment, "teacher_manage_tasks/$uniName/$className"),
         DashboardMenu("Upload Materi", Icons.Default.LibraryBooks, "teacher_manage_materials/$uniName/$className"),
         DashboardMenu("Data Mahasiswa", Icons.Default.People, "teacher_class_students/$uniName/$className"),

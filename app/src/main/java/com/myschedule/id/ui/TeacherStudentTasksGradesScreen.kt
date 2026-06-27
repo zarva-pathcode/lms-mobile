@@ -11,9 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.FileOpen
-import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +24,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import com.myschedule.id.data.QuizRepository
 import com.myschedule.id.data.TaskRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,6 +37,7 @@ fun TeacherStudentTasksGradesScreen(
     className: String
 ) {
     var tasksWithGrades by remember { mutableStateOf(listOf<Pair<Map<String, Any>, Map<String, Any>?>>()) }
+    var quizWithAttempts by remember { mutableStateOf(listOf<Pair<Map<String, Any>, Map<String, Any>?>>()) }
     var isLoading by remember { mutableStateOf(true) }
     
     val context = LocalContext.current
@@ -72,6 +72,26 @@ fun TeacherStudentTasksGradesScreen(
 
     LaunchedEffect(Unit) { loadData() }
 
+    fun loadQuizGrades() {
+        QuizRepository.getQuizzesByClass(uniName, className) { quizzes ->
+            val active = quizzes.filter { (it["status"]?.toString() ?: "active") == "active" }
+            if (active.isEmpty()) { quizWithAttempts = emptyList(); return@getQuizzesByClass }
+            val list = mutableListOf<Pair<Map<String, Any>, Map<String, Any>?>>()
+            var loaded = 0
+            active.forEach { quiz ->
+                QuizRepository.getAttempt(quiz["id"].toString(), studentUid) { attempt ->
+                    list.add(quiz to attempt)
+                    loaded++
+                    if (loaded == active.size) {
+                        quizWithAttempts = list.sortedByDescending { (it.first["deadline"] as? String) ?: "" }
+                    }
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) { loadQuizGrades() }
+
     Scaffold(
         topBar = {
             Box(
@@ -98,9 +118,60 @@ fun TeacherStudentTasksGradesScreen(
             }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(tasksWithGrades) { (task, submission) ->
-                    GradeTaskItemInternal(task, submission, studentUid, bluePrimary, navController) { loadData() }
+                if (tasksWithGrades.isNotEmpty()) {
+                    item {
+                        Text("Nilai Tugas", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = bluePrimary)
+                    }
+                    items(tasksWithGrades) { (task, submission) ->
+                        GradeTaskItemInternal(task, submission, studentUid, bluePrimary, navController) { loadData() }
+                    }
                 }
+
+                if (quizWithAttempts.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Nilai Quiz", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = bluePrimary)
+                    }
+                    items(quizWithAttempts) { (quiz, attempt) ->
+                        TeacherQuizGradeCard(quiz, attempt, bluePrimary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TeacherQuizGradeCard(quiz: Map<String, Any>, attempt: Map<String, Any>?, primaryColor: Color) {
+    val score = (attempt?.get("score") as? Long)?.toInt() ?: -1
+    val submitted = attempt != null && attempt["submittedAt"] != null
+    val passingScore = (quiz["passingScore"] as? Long)?.toInt() ?: 70
+    val totalQuestions = (quiz["totalQuestions"] as? Long)?.toInt() ?: 0
+
+    val (category, catColor) = when {
+        !submitted -> "Belum dikerjakan" to Color.Gray
+        score < passingScore -> "Belum memenuhi" to Color(0xFFEF4444)
+        score < 75 -> "Cukup" to Color(0xFFF59E0B)
+        score < 90 -> "Baik" to Color(0xFF10B981)
+        else -> "Sangat Baik" to Color(0xFF059669)
+    }
+
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(2.dp)) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(44.dp).background(primaryColor.copy(0.1f), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Quiz, null, tint = primaryColor)
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(quiz["title"].toString(), fontWeight = FontWeight.Bold, color = Color.Black)
+                Text("$totalQuestions Soal", fontSize = 12.sp, color = Color.Gray)
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = if (submitted) "$score" else "-",
+                    fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = catColor
+                )
+                Text(category, fontSize = 10.sp, color = catColor)
             }
         }
     }

@@ -27,6 +27,7 @@ fun StudentClassDashboardScreen(navController: NavHostController, uniName: Strin
 
     val menuItems = listOf(
         StudentDashboardMenu("Absensi", Icons.Default.CheckCircle, "student_absensi/$uniName/$className"),
+        StudentDashboardMenu("Quiz", Icons.Default.Quiz, "student_quiz/$uniName/$className"),
         StudentDashboardMenu("Tugas", Icons.Default.Assignment, "student_tasks/$uniName/$className"),
         StudentDashboardMenu("Materi Kuliah", Icons.Default.LibraryBooks, "student_materi/$uniName/$className"),
         StudentDashboardMenu("Informasi Nilai", Icons.Default.Assessment, "student_grades/$uniName/$className")

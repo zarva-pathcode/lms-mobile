@@ -90,6 +90,44 @@ class MainActivity : ComponentActivity() {
                     }
 
                     composable(
+                        route = "teacher_manage_quiz/{uniName}/{className}",
+                        arguments = listOf(
+                            navArgument("uniName") { type = NavType.StringType },
+                            navArgument("className") { type = NavType.StringType }
+                        )
+                    ) { backStackEntry ->
+                        val uniName = backStackEntry.arguments?.getString("uniName") ?: ""
+                        val className = backStackEntry.arguments?.getString("className") ?: ""
+                        TeacherManageQuizScreen(navController, uniName, className)
+                    }
+
+                    composable(
+                        route = "teacher_create_quiz/{uniName}/{className}?quizId={quizId}",
+                        arguments = listOf(
+                            navArgument("uniName") { type = NavType.StringType },
+                            navArgument("className") { type = NavType.StringType },
+                            navArgument("quizId") { type = NavType.StringType; defaultValue = "" }
+                        )
+                    ) { backStackEntry ->
+                        val uniName = backStackEntry.arguments?.getString("uniName") ?: ""
+                        val className = backStackEntry.arguments?.getString("className") ?: ""
+                        val quizId = backStackEntry.arguments?.getString("quizId") ?: ""
+                        TeacherCreateQuizScreen(navController, uniName, className, quizId)
+                    }
+
+                    composable(
+                        route = "teacher_quiz_results/{quizId}/{quizTitle}",
+                        arguments = listOf(
+                            navArgument("quizId") { type = NavType.StringType },
+                            navArgument("quizTitle") { type = NavType.StringType }
+                        )
+                    ) { backStackEntry ->
+                        val quizId = backStackEntry.arguments?.getString("quizId") ?: ""
+                        val quizTitle = backStackEntry.arguments?.getString("quizTitle") ?: ""
+                        TeacherQuizResultsScreen(navController, quizId, quizTitle)
+                    }
+
+                    composable(
                         route = "teacher_manage_materials/{uniName}/{className}",
                         arguments = listOf(
                             navArgument("uniName") { type = NavType.StringType },
@@ -151,6 +189,30 @@ class MainActivity : ComponentActivity() {
                         val uniName = backStackEntry.arguments?.getString("uniName") ?: ""
                         val className = backStackEntry.arguments?.getString("className") ?: ""
                         StudentTugasScreen(navController, uniName, className)
+                    }
+
+                    composable(
+                        route = "student_quiz/{uniName}/{className}",
+                        arguments = listOf(
+                            navArgument("uniName") { type = NavType.StringType },
+                            navArgument("className") { type = NavType.StringType }
+                        )
+                    ) { backStackEntry ->
+                        val uniName = backStackEntry.arguments?.getString("uniName") ?: ""
+                        val className = backStackEntry.arguments?.getString("className") ?: ""
+                        StudentQuizScreen(navController, uniName, className)
+                    }
+
+                    composable(
+                        route = "student_quiz_attempt/{quizId}/{quizTitle}",
+                        arguments = listOf(
+                            navArgument("quizId") { type = NavType.StringType },
+                            navArgument("quizTitle") { type = NavType.StringType }
+                        )
+                    ) { backStackEntry ->
+                        val quizId = backStackEntry.arguments?.getString("quizId") ?: ""
+                        val quizTitle = backStackEntry.arguments?.getString("quizTitle") ?: ""
+                        StudentQuizAttemptScreen(navController, quizId, quizTitle)
                     }
 
                     composable(
