@@ -170,7 +170,7 @@ fun QuizCard(quiz: Map<String, Any>, primaryColor: Color, onViewResults: () -> U
     val isActive = status == "active"
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable { onEdit() },
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
@@ -207,14 +207,9 @@ fun QuizCard(quiz: Map<String, Any>, primaryColor: Color, onViewResults: () -> U
             HorizontalDivider(thickness = 0.5.dp, color = Color.LightGray)
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                 TextButton(onClick = onViewResults, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.BarChart, null, modifier = Modifier.size(16.dp), tint = primaryColor)
+                    Icon(Icons.Default.Assessment, null, modifier = Modifier.size(16.dp), tint = primaryColor)
                     Spacer(Modifier.width(4.dp))
                     Text("Hasil", fontSize = 12.sp, color = primaryColor)
-                }
-                TextButton(onClick = onEdit, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp), tint = Color(0xFF1565C0))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Edit", fontSize = 12.sp, color = Color(0xFF1565C0))
                 }
                 TextButton(onClick = onToggleStatus, modifier = Modifier.weight(1f)) {
                     Icon(

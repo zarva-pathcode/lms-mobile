@@ -229,9 +229,9 @@ fun TeacherCreateQuizScreen(navController: NavHostController, uniName: String, c
                     OutlinedTextField(
                         value = timeLimit,
                         onValueChange = {
-                            it.filter { c -> c.isDigit() }.let { v ->
-                                if (v.length <= 3) { timeLimit = v; saveDraft() }
-                            }
+                        it.filter { c -> c.isDigit() }.let { v ->
+                            if (v.isEmpty() || (v.length <= 3 && v.toInt() >= 1)) { timeLimit = v; saveDraft() }
+                        }
                         },
                         label = { Text("Timer (menit)") },
                         modifier = Modifier.weight(1f)
@@ -243,10 +243,10 @@ fun TeacherCreateQuizScreen(navController: NavHostController, uniName: String, c
                     value = passingScore,
                     onValueChange = {
                         it.filter { c -> c.isDigit() }.let { v ->
-                            if (v.isNotEmpty() && v.toInt() <= 100) { passingScore = v; saveDraft() }
+                            if (v.isEmpty() || (v.toInt() in 1..100)) { passingScore = v; saveDraft() }
                         }
                     },
-                    label = { Text("Nilai Lulus (0-100)") },
+                    label = { Text("Nilai Lulus (1-100)") },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -323,6 +323,8 @@ fun TeacherCreateQuizScreen(navController: NavHostController, uniName: String, c
                         if (title.isBlank() || deadlineDate.isBlank() || timeLimit.isBlank() || passingScore.isBlank()) {
                             errorMessage = "Isi semua field wajib"; return@Button
                         }
+                        if (timeLimit.toInt() < 1) { errorMessage = "Timer minimal 1 menit"; return@Button }
+                        if (passingScore.toInt() < 1) { errorMessage = "Nilai lulus minimal 1"; return@Button }
                         if (questions.isEmpty()) {
                             errorMessage = "Tambah minimal 1 soal"; return@Button
                         }

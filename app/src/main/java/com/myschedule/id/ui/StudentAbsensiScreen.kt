@@ -138,75 +138,79 @@ fun StudentAbsensiScreen(navController: NavHostController, uniName: String, clas
                                 colors = CardDefaults.cardColors(containerColor = Color.White),
                                 elevation = CardDefaults.cardElevation(2.dp)
                             ) {
-                                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(session["title"].toString(), fontWeight = FontWeight.Bold, color = Color.Black)
-                                        Text("Tanggal: ${session["date"]}", fontSize = 12.sp, color = Color.Gray)
-                                    }
-                                    
-                                    val myAttendance = students.find { it["uid"] == uid }
-                                    val myStatus = myAttendance?.get("status")?.toString() ?: "Hadir"
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(session["title"].toString(), fontWeight = FontWeight.Bold, color = Color.Black)
+                                            Text("Tanggal: ${session["date"]}", fontSize = 12.sp, color = Color.Gray)
+                                        }
 
-                                    if (alreadyAbsen) {
-                                        val statusColor = when(myStatus) {
-                                            "Sakit" -> Color(0xFFF59E0B)
-                                            "Izin" -> Color(0xFF3B82F6)
-                                            else -> Color(0xFF10B981)
+                                        if (alreadyAbsen) {
+                                            val myAttendance = students.find { it["uid"] == uid }
+                                            val myStatus = myAttendance?.get("status")?.toString() ?: "Hadir"
+                                            val statusColor = when(myStatus) {
+                                                "Sakit" -> Color(0xFFF59E0B)
+                                                "Izin" -> Color(0xFF3B82F6)
+                                                else -> Color(0xFF10B981)
+                                            }
+                                            val statusIcon = when(myStatus) {
+                                                "Sakit" -> Icons.Default.Warning
+                                                "Izin" -> Icons.Default.Info
+                                                else -> Icons.Default.CheckCircle
+                                            }
+                                            Icon(statusIcon, null, tint = statusColor)
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(myStatus, color = statusColor, fontWeight = FontWeight.Bold)
                                         }
-                                        val statusIcon = when(myStatus) {
-                                            "Sakit" -> Icons.Default.Warning
-                                            "Izin" -> Icons.Default.Info
-                                            else -> Icons.Default.CheckCircle
-                                        }
-                                        Icon(statusIcon, null, tint = statusColor)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(myStatus, color = statusColor, fontWeight = FontWeight.Bold)
-                                    } else {
+                                    }
+
+                                    if (!alreadyAbsen) {
+                                        Spacer(modifier = Modifier.height(12.dp))
                                         var selectedStatus by remember { mutableStateOf("") }
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                                listOf("Hadir", "Sakit", "Izin").forEach { status ->
-                                                    val isSelected = selectedStatus == status
-                                                    val chipColor = when(status) {
-                                                        "Hadir" -> Color(0xFF10B981)
-                                                        "Sakit" -> Color(0xFFF59E0B)
-                                                        "Izin" -> Color(0xFF3B82F6)
-                                                        else -> bluePrimary
-                                                    }
-                                                    OutlinedButton(
-                                                        onClick = { selectedStatus = status },
-                                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                                        border = BorderStroke(1.dp, if (isSelected) chipColor else Color.LightGray),
-                                                        colors = ButtonDefaults.outlinedButtonColors(
-                                                            containerColor = if (isSelected) chipColor.copy(0.1f) else Color.Transparent,
-                                                            contentColor = if (isSelected) chipColor else Color.Black
-                                                        ),
-                                                        shape = RoundedCornerShape(8.dp)
-                                                    ) {
-                                                        Text(status, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
-                                                    }
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            listOf("Hadir", "Sakit", "Izin").forEach { status ->
+                                                val isSelected = selectedStatus == status
+                                                val chipColor = when(status) {
+                                                    "Hadir" -> Color(0xFF10B981)
+                                                    "Sakit" -> Color(0xFFF59E0B)
+                                                    "Izin" -> Color(0xFF3B82F6)
+                                                    else -> bluePrimary
+                                                }
+                                                OutlinedButton(
+                                                    onClick = { selectedStatus = status },
+                                                    modifier = Modifier.weight(1f),
+                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                    border = BorderStroke(1.dp, if (isSelected) chipColor else Color.LightGray),
+                                                    colors = ButtonDefaults.outlinedButtonColors(
+                                                        containerColor = if (isSelected) chipColor.copy(0.1f) else Color.Transparent,
+                                                        contentColor = if (isSelected) chipColor else Color.Black
+                                                    ),
+                                                    shape = RoundedCornerShape(8.dp)
+                                                ) {
+                                                    Text(status, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
                                                 }
                                             }
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Button(
-                                                onClick = {
-                                                    AbsensiRepository.submitAbsensi(
-                                                        session["id"] as String,
-                                                        uid,
-                                                        studentName.value,
-                                                        selectedStatus,
-                                                        onSuccess = {
-                                                            message = "Berhasil Absen!"
-                                                            loadSessions(selectedScheduleId)
-                                                        },
-                                                        onError = { message = it }
-                                                    )
-                                                },
-                                                enabled = selectedStatus.isNotEmpty(),
-                                                colors = ButtonDefaults.buttonColors(containerColor = bluePrimary)
-                                            ) {
-                                                Text("Absen", color = Color.White)
-                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Button(
+                                            onClick = {
+                                                AbsensiRepository.submitAbsensi(
+                                                    session["id"] as String,
+                                                    uid,
+                                                    studentName.value,
+                                                    selectedStatus,
+                                                    onSuccess = {
+                                                        message = "Berhasil Absen!"
+                                                        loadSessions(selectedScheduleId)
+                                                    },
+                                                    onError = { message = it }
+                                                )
+                                            },
+                                            enabled = selectedStatus.isNotEmpty(),
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = ButtonDefaults.buttonColors(containerColor = bluePrimary)
+                                        ) {
+                                            Text("Absen", color = Color.White)
                                         }
                                     }
                                 }
